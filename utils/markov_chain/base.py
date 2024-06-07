@@ -19,18 +19,14 @@ class MarkovChain:
 
     _step_n: typing.Optional[int] = None
 
+    _random_seed: typing.Optional[int] = None
+
     # region histogram internal data
     _n: typing.Optional[np.ndarray] = None
 
     _bins: typing.Optional[np.ndarray] = None
 
-    _patches: typing.Optional[
-        typing.Union[
-            plt.BarContainer,
-            plt.Polygon,
-            typing.List[plt.BarContainer | plt.Polygon],
-        ]
-    ] = None
+    _patches = None
 
     # endregion histogram internal data
 
@@ -40,9 +36,7 @@ class MarkovChain:
     _record_values: typing.Optional[np.ndarray] = None
 
     # Dictionary of regeneration blocks (the key is the state)
-    _regeneration_blocks: typing.Optional[typing.Dict[int, typing.List[np.ndarray]]] = (
-        None
-    )
+    _regeneration_blocks = None
 
     # endregion Records internal data
 
@@ -50,9 +44,10 @@ class MarkovChain:
 
     # region public interface
 
-    def __init__(self, step_n: int, name: str) -> None:
+    def __init__(self, step_n: int, name: str, random_seed=None) -> None:
         self._step_n = step_n
         self.name = name
+        self._random_seed = random_seed
 
     def get_path(self) -> np.ndarray:
         """
@@ -205,9 +200,9 @@ class MarkovChain:
             try:
                 return self._regeneration_blocks[state]
             except KeyError:
-                self._regeneration_blocks = dict()
+                self._regeneration_blocks = list()
         else:
-            self._regeneration_blocks = dict()
+            self._regeneration_blocks = list()
         blocks = list()
         _path = self.get_path()
 
