@@ -200,9 +200,9 @@ class MarkovChain:
             try:
                 return self._regeneration_blocks[state]
             except KeyError:
-                self._regeneration_blocks = list()
+                self._regeneration_blocks = dict()
         else:
-            self._regeneration_blocks = list()
+            self._regeneration_blocks = dict()
         blocks = list()
         _path = self.get_path()
 
