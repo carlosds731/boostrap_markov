@@ -195,7 +195,6 @@ class MarkovChain:
         Returns:
             list of np.ndarray: The regeneration blocks for the given state.
         """
-        _visit_times = self.get_times_of_visits(state=state)
         if self._regeneration_blocks:
             try:
                 return self._regeneration_blocks[state]
@@ -205,12 +204,31 @@ class MarkovChain:
             self._regeneration_blocks = dict()
         blocks = list()
         _path = self.get_path()
+        _visit_times = self.get_times_of_visits(state=state)
 
         for index in range(0, len(_visit_times) - 1):
             blocks.append(_path[_visit_times[index] + 1 : _visit_times[index + 1] + 1])
 
         self._regeneration_blocks[state] = blocks
         return blocks
+
+    def apply_fn_regeneration_blocks(
+        self,
+        fn: typing.Callable[[np.ndarray], float],
+        state: typing.Optional[int] = None,
+    ) -> np.ndarray:
+        """
+        Applies a function to each regeneration block.
+
+        Args:
+            fn (callable): The function to apply to each regeneration block. It should take a numpy array as input and return a number.
+            state (int, optional): The state to consider. If None, uses the most visited state.
+
+        Returns:
+            np.ndarray: The result of applying the function to each regeneration block.
+        """
+        regeneration_blocks = self.get_regeneration_blocks(state=state)
+        return np.array([fn(block) for block in regeneration_blocks])
 
     def plot_histogram(self) -> None:
         """
@@ -420,3 +438,64 @@ class MarkovChain:
         return [int(self._bins[i] + 0.5) for i in _indexes][0]
 
     # endregion internal functions
+
+
+import multiprocessing as mp
+
+
+def _sample_statistic(args):
+    i, random_seed, markov_chain_class, create_kargs, fn, true_mean, atom_state = args
+    while True:
+        random_seed += i
+        create_kargs["random_seed"] = random_seed
+        mc = markov_chain_class(**create_kargs)
+        fn_blocks = mc.apply_fn_regeneration_blocks(fn=fn, state=atom_state)
+        if np.std(fn_blocks) > 0:
+            break
+        i += 1  # Increment i to change the random seed for the next iteration
+    return (
+        np.sqrt(len(fn_blocks)) * (np.mean(fn_blocks) - true_mean) / np.std(fn_blocks)
+    )
+
+
+def inverse_square(block):
+    return np.sum(np.where(block == 0, 0, np.power(block, -2)))
+
+
+def get_samples_from_mean_estimator_for_inverse_square(
+    num_samples: int,
+    markov_chain_class: typing.Type[MarkovChain],
+    create_kargs: dict,
+    true_mean: float,
+    atom_state: float,
+    random_seed: int = None,
+) -> np.ndarray:
+    """
+    Generates samples from the mean estimator for the inverse square function in parallel.
+
+    Args:
+        num_samples (int): The number of samples to generate.
+        markov_chain_class (Type[MarkovChain]): The class of the Markov chain. Must inherit from MarkovChain.
+        create_kargs (dict): The keyword arguments to pass to the constructor of the Markov chain.
+        true_mean (float): The true mean of the statistic.
+        atom_state (float): The state to consider for the regeneration blocks.
+        random_seed (int, optional): The random seed to use. Defaults to None.
+
+    Returns:
+        np.ndarray: An array containing the samples from the inverse square statistic distribution.
+    """
+    with mp.Pool() as pool:
+        args = [
+            (
+                i,
+                random_seed + i * 10,
+                markov_chain_class,
+                create_kargs,
+                inverse_square,
+                true_mean,
+                atom_state,
+            )
+            for i in range(num_samples)
+        ]
+        statistic_values = pool.map(_sample_statistic, args)
+    return np.array(statistic_values)

@@ -1,7 +1,7 @@
 import math
 import os
 import numpy as np
-from utils.markov_chain import MarkovChain
+from markov_chain import MarkovChain
 import matplotlib.pyplot as plt
 
 
