@@ -25,6 +25,32 @@ def single_regeneration_based_bootstrap(args: Tuple[np.ndarray, int]) -> List[fl
 
 # endregion Bootstrap algorithms
 
+
+def regeneration_based_bootstrap_series(
+    block_values: List[float], num_bootstraps: int
+) -> List[List[float]]:
+    """
+    Perform the regeneration-based bootstrap algorithm in series.
+
+    Args:
+        block_values (List[float]): List of block values.
+        num_bootstraps (int): The number of bootstrap samples to generate.
+
+    Returns:
+        List[List[float]]: A list of lists, where each inner list contains bootstrapped values.
+    """
+    block_values = np.array(block_values)
+    num_blocks = len(block_values)
+
+    # Prepare the arguments for single_bootstrap_simulation
+    args = [(block_values, num_blocks) for _ in range(num_bootstraps)]
+
+    # Run the simulations in series
+    bootstrap_results = [single_regeneration_based_bootstrap(arg) for arg in args]
+
+    return bootstrap_results
+
+
 # region parallelization
 
 

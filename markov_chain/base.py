@@ -5,6 +5,7 @@ colors = cycle("bgrcmykbgrcmykbgrcmykbgrcmyk")
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from utils import get_normalized_mean_statistic
 
 
 class MarkovChain:
@@ -228,7 +229,13 @@ class MarkovChain:
             np.ndarray: The result of applying the function to each regeneration block.
         """
         regeneration_blocks = self.get_regeneration_blocks(state=state)
-        return np.array([fn(block) for block in regeneration_blocks])
+        results = []
+        for block in regeneration_blocks:
+            try:
+                results.append(fn(block))
+            except FloatingPointError as e:
+                print(e)
+        return np.array(results)
 
     def plot_histogram(self) -> None:
         """
@@ -446,20 +453,22 @@ import multiprocessing as mp
 def _sample_statistic(args):
     i, random_seed, markov_chain_class, create_kargs, fn, true_mean, atom_state = args
     while True:
-        random_seed += i
+        random_seed += 1
         create_kargs["random_seed"] = random_seed
         mc = markov_chain_class(**create_kargs)
         fn_blocks = mc.apply_fn_regeneration_blocks(fn=fn, state=atom_state)
-        if np.std(fn_blocks) > 0:
+        if len(fn_blocks) > 0 and np.std(fn_blocks) > 0:
             break
-        i += 1  # Increment i to change the random seed for the next iteration
-    return (
-        np.sqrt(len(fn_blocks)) * (np.mean(fn_blocks) - true_mean) / np.std(fn_blocks)
-    )
+    return get_normalized_mean_statistic(fn_blocks, true_mean)
 
 
-def inverse_square(block):
-    return np.sum(np.where(block == 0, 0, np.power(block, -2)))
+def inverse_square(block: np.array):
+    non_zero_block = block[block != 0]  # Filter out zero elements
+    return np.sum(1 / non_zero_block**2)  # Compute the sum of inverse squares
+
+
+def smaller_than(block: np.array):
+    return np.sum(block < 10)
 
 
 def get_samples_from_mean_estimator_for_inverse_square(
@@ -488,7 +497,7 @@ def get_samples_from_mean_estimator_for_inverse_square(
         args = [
             (
                 i,
-                random_seed + i * 10,
+                random_seed + i * 10**3,
                 markov_chain_class,
                 create_kargs,
                 inverse_square,

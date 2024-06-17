@@ -37,13 +37,46 @@ def single_rbb(args: Tuple[np.ndarray, np.ndarray, int, int]) -> List[float]:
         # Add the bootstrapped value
         bootstrapped_values.append(block_values[random_idx])
 
-        # Update the index_counter and generate more indices if necessary
+        # Update the index_counter and generate more indexes if necessary
         index_counter += 1
         if index_counter >= batch_size:
             random_indices = np.random.randint(0, len(block_sizes), size=batch_size)
             index_counter = 0
 
     return bootstrapped_values
+
+
+def rbb_series(
+    block_sizes: List[float],
+    block_values: List[float],
+    n: int,
+    num_bootstraps: int,
+) -> List[List[float]]:
+    """
+    Perform the regeneration-based bootstrap (RBB) algorithm in series.
+
+    Args:
+        block_sizes (List[float]): List of block sizes.
+        block_values (List[float]): List of block values.
+        n (int): The target sum for the bootstrap.
+        num_bootstraps (int): The number of bootstrap samples to generate.
+
+    Returns:
+        List[List[float]]: A list of lists, where each inner list contains bootstrapped values.
+    """
+    block_sizes = np.array(block_sizes)
+    block_values = np.array(block_values)
+
+    # Calculate the batch_size based on n and block_sizes
+    batch_size = int(n / np.sum(block_sizes)) * len(block_sizes) + 1
+
+    # Prepare the arguments for single_bootstrap_simulation
+    args = [(block_sizes, block_values, n, batch_size) for _ in range(num_bootstraps)]
+
+    # Run the simulations in series
+    bootstrap_results = [single_rbb(arg) for arg in args]
+
+    return bootstrap_results
 
 
 def rbb_parallel_apply_async(
